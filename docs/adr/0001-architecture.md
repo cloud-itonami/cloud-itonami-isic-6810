@@ -1,4 +1,4 @@
-# ADR-0001: cloud-itonami-L6810 -- Realtor-LLM as a contained intelligence node
+# ADR-0001: cloud-itonami-isic-6810 -- Realtor-LLM as a contained intelligence node
 
 - Status: Accepted (2026-07-03)
 - Related: `cloud-itonami-M6910` ADR-0001 (Registrar-LLM ⊣ RegistrarGovernor,
