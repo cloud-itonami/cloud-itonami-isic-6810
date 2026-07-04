@@ -1,4 +1,4 @@
-{:itonami.blueprint/id "cloud-itonami-6810"
+{:itonami.blueprint/id "cloud-itonami-isic-6810"
  :itonami.blueprint/name "Community Real-Estate Agency"
  :itonami.blueprint/isic-rev5 "6810"
  :itonami.blueprint/domain :property/real-estate-agency
