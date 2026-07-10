@@ -6,7 +6,7 @@
  :itonami.blueprint/social-impact [:housing-access :tenancy-protection :transparency]
  :itonami.blueprint/governor :realtor-governor
  :itonami.blueprint/required-technologies [:property :identity :forms :dmn :bpmn :audit-ledger]
- :itonami.blueprint/optional-technologies [:optimization]
+ :itonami.blueprint/optional-technologies [:optimization :corporate-intelligence]
  :itonami.blueprint/status :public-oss
  :itonami.blueprint/robotics true
  :itonami.blueprint/maturity :implemented}
