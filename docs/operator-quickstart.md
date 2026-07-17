@@ -2,6 +2,13 @@
 
 Get the Community Real-Estate Agency running locally in under 5 minutes.
 
+## Who This Is For
+
+- **Licensed real-estate agents** who want an open-source, governed closing workflow
+- **Property-management operators** needing jurisdiction-specific disclosure checklists and audit trails
+- **Housing cooperatives &amp; community land trusts** building transparent listing and lease systems
+- **Developers** extending a proven actor pattern with built-in safeguards
+
 ## Prerequisites
 
 - **Clojure CLI** (≥1.11) — [install](https://clojure.org/guides/install_clojure)

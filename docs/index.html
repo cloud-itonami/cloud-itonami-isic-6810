@@ -10,11 +10,36 @@
       padding: 0;
       box-sizing: border-box;
     }
+    :root {
+      color-scheme: light dark;
+      --bg-primary: #fafafa;
+      --bg-card: white;
+      --text-primary: #222;
+      --text-secondary: #666;
+      --text-body: #444;
+      --border: #eee;
+      --shadow: rgba(0,0,0,0.1);
+      --link: #0066cc;
+      --link-hover: #0052a3;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #121212;
+        --bg-card: #1e1e1e;
+        --text-primary: #e8e8e8;
+        --text-secondary: #999;
+        --text-body: #c0c0c0;
+        --border: #333;
+        --shadow: rgba(0,0,0,0.5);
+        --link: #66b3ff;
+        --link-hover: #99ccff;
+      }
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       line-height: 1.6;
-      color: #333;
-      background: #fafafa;
+      color: var(--text-primary);
+      background: var(--bg-primary);
     }
     .container {
       max-width: 800px;
@@ -28,25 +53,39 @@
     h1 {
       font-size: 2.5em;
       margin-bottom: 10px;
-      color: #222;
+      color: var(--text-primary);
     }
     .isic {
       font-size: 0.9em;
-      color: #666;
+      color: var(--text-secondary);
       margin-bottom: 30px;
     }
-    .pitch {
-      font-size: 1.05em;
+    .problem {
+      font-size: 1.1em;
+      line-height: 1.8;
+      margin-bottom: 20px;
+      color: var(--text-body);
+      background: var(--bg-card);
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px var(--shadow);
+    }
+    .problem strong {
+      color: var(--text-primary);
+    }
+    .differentiator {
+      font-size: 1em;
       line-height: 1.8;
       margin-bottom: 40px;
-      color: #444;
-      background: white;
-      padding: 30px;
+      color: var(--text-body);
+      background: var(--bg-card);
+      padding: 25px;
       border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 1px 3px var(--shadow);
+      border-left: 4px solid var(--link);
     }
-    .pitch p {
-      margin-bottom: 12px;
+    .differentiator strong {
+      color: var(--text-primary);
     }
     .section {
       margin-bottom: 40px;
@@ -54,13 +93,19 @@
     .section h2 {
       font-size: 1.3em;
       margin-bottom: 15px;
-      color: #222;
+      color: var(--text-primary);
+    }
+    .section h3 {
+      font-size: 1.1em;
+      margin-bottom: 12px;
+      margin-top: 20px;
+      color: var(--text-primary);
     }
     .links {
-      background: white;
+      background: var(--bg-card);
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 1px 3px var(--shadow);
       margin-bottom: 20px;
     }
     .links ul {
@@ -70,7 +115,7 @@
       margin-bottom: 12px;
     }
     .links a {
-      color: #0066cc;
+      color: var(--link);
       text-decoration: none;
       font-weight: 500;
     }
@@ -85,7 +130,7 @@
     }
     .cta {
       display: inline-block;
-      padding: 12px 24px;
+      padding: 14px 28px;
       border-radius: 6px;
       text-decoration: none;
       font-weight: 600;
@@ -96,32 +141,42 @@
       font-size: 1em;
     }
     .cta-primary {
-      background: #0066cc;
+      background: var(--link);
       color: white;
     }
     .cta-primary:hover {
-      background: #0052a3;
+      background: var(--link-hover);
       transform: translateY(-1px);
     }
     .cta-secondary {
-      background: #f0f0f0;
-      color: #333;
-      border: 1px solid #ddd;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
     }
     .cta-secondary:hover {
-      background: #e8e8e8;
+      background: var(--bg-primary);
       transform: translateY(-1px);
+    }
+    .what-not {
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px var(--shadow);
+      color: var(--text-body);
+    }
+    .what-not strong {
+      color: var(--text-primary);
     }
     .footer {
       text-align: center;
       padding: 30px 0;
-      color: #999;
+      color: var(--text-secondary);
       font-size: 0.9em;
-      border-top: 1px solid #eee;
+      border-top: 1px solid var(--border);
       margin-top: 50px;
     }
     .footer a {
-      color: #666;
+      color: var(--link);
       text-decoration: none;
     }
     .footer a:hover {
@@ -136,64 +191,51 @@
       <div class="isic">ISIC Rev.5 6810 — Open Business Blueprint</div>
     </header>
 
-    <div class="pitch">
-      <p>
-        An open-source, forkable real-estate agency platform for independent property operators, housing cooperatives,
-        and community land trusts. Manage listings, leases, tenancy records, and close sales with full transparency.
-      </p>
-      <p>
-        Built on the Realtor-LLM ⊣ RealtorGovernor actor pattern: an LLM advisor proposes closings and disclosures,
-        while an independent governor enforces jurisdiction-specific requirements, screens for sanctions, and gates
-        final execution to human approval. No autonomous recordings. No silent liability.
-      </p>
-      <p>
-        Deploy, run, and extend it in your jurisdiction. Fork on GitHub, self-host on your infrastructure, and sell
-        the service to licensed operators. Governance, social impact metrics, and audit trails built in from the start.
-      </p>
+    <div class="problem">
+      <strong>The problem:</strong> Real-estate closings require human judgment and legal accountability, but operators often build compliance from scratch. The LLM can draft disclosures and spot issues, but it has no legal standing and no business being the one that decides whether a title transfer happens.
+    </div>
+
+    <div class="differentiator">
+      <strong>The solution:</strong> An independent <strong>RealtorGovernor</strong> seals the LLM into a single node and wraps it with human approval workflows, jurisdiction-specific enforcement gates, and an immutable audit ledger. The governor holds unsafe commits. No autonomous recordings. No silent liability.
     </div>
 
     <div class="section">
       <h2>Get Started</h2>
       <div class="cta-group">
-        <a href="https://itonami.cloud/isco-1212/" class="cta cta-primary">Fork &amp; Self-Host for Free</a>
-        <a href="https://itonami.cloud/docs/go-live.md" class="cta cta-secondary">Paid Path &amp; Support</a>
+        <a href="https://itonami.cloud/isco-1212/" class="cta cta-primary">Claim Free Tenant</a>
+        <a href="https://itonami.cloud/docs/go-live.md" class="cta cta-secondary">Explore Paid Path</a>
       </div>
     </div>
 
     <div class="section">
-      <h2>Documentation</h2>
+      <h2>What It Does</h2>
       <div class="links">
         <ul>
-          <li><a href="https://github.com/com-junkawasaki/cloud-itonami-isic-6810">Repository on GitHub</a> — source code, tests, and architecture</li>
-          <li><a href="./operator-quickstart.md">Operator Quickstart</a> — run tests, start the demo, understand the governor</li>
-          <li><a href="../README.md">Full README</a> — architecture, scope, actuation gates, and jurisdiction coverage</li>
-          <li><a href="./business-model.md">Business Model</a> — customer, offer, revenue, and trust controls</li>
-          <li><a href="./operator-guide.md">Operator Guide</a> — deployment checklist and minimum production controls</li>
-          <li><a href="./adr/">Architecture Decision Records</a> — technical decisions and rationale</li>
+          <li><strong>Governed closing execution:</strong> Intake, jurisdiction-specific checklists, KYC-sanctions screening, and human-approval gates</li>
+          <li><strong>Parcel &amp; listing management:</strong> Link properties to listings, validate term overlaps, manage active leases</li>
+          <li><strong>Tenancy &amp; transaction records:</strong> Complete audit trail for rent, maintenance, handovers, and every state change</li>
+          <li><strong>Audit ledger:</strong> Immutable record of every proposal, hold, and decision</li>
         </ul>
       </div>
     </div>
 
     <div class="section">
-      <h2>Key Features</h2>
-      <div class="links">
-        <ul>
-          <li><strong>Governed closing execution:</strong> Intake, jurisdiction-specific disclosure checklists, KYC-sanctions screening, human approval, and audit ledger</li>
-          <li><strong>Parcel &amp; listing management:</strong> Attach properties to listings; validate term overlaps; manage active leases</li>
-          <li><strong>Tenancy records:</strong> Track rent, maintenance, handovers, and audit trails for every transaction</li>
-          <li><strong>Role-based access:</strong> Agent, operator, and management views with immutable audit logs</li>
-          <li><strong>Jurisdiction-specific facts:</strong> Extensible catalog of disclosure requirements with official spec-based citations (6 jurisdictions seeded)</li>
-        </ul>
+      <h2>What It Is Not</h2>
+      <div class="what-not">
+        <p><strong>It does not hold a broker/agent license.</strong> You supply the jurisdiction-specific license, the real KYC/AML program, land-registry integrations, and escrow connections. You bear that jurisdiction's liability; the software supplies the governed execution scaffold so you don't build the compliance layer from scratch.</p>
       </div>
     </div>
 
     <div class="section">
-      <h2>What It Is (and Isn't)</h2>
+      <h2>Docs &amp; Code</h2>
       <div class="links">
         <ul>
-          <li><strong>It governs closing workflows:</strong> Listing intake, disclosure checklists, KYC screening, closing proposals, and human-approved recording gates</li>
-          <li><strong>It does not hold a broker/agent license.</strong> You supply the jurisdiction-specific license, the real KYC/AML program, and the land-registry / escrow integrations. You bear that jurisdiction's liability; the software supplies the governed execution scaffold.</li>
-          <li><strong>It never records a closing or disburses escrow autonomously.</strong> Two independent layers enforce this: the governor's actuation gate and the phase table. A human operator always signs off.</li>
+          <li><a href="https://github.com/com-junkawasaki/cloud-itonami-isic-6810">GitHub Repository</a> — source code, full tests, architecture</li>
+          <li><a href="./operator-quickstart.md">Operator Quickstart</a> — run tests, launch demo, understand the governor</li>
+          <li><a href="../README.md">Full README</a> — scope, actuation gates, jurisdiction coverage</li>
+          <li><a href="./operator-guide.md">Operator Guide</a> — deployment checklist, production controls</li>
+          <li><a href="./business-model.md">Business Model</a> — customer, offer, revenue, trust</li>
+          <li><a href="./adr/">Architecture Decisions</a> — design rationale</li>
         </ul>
       </div>
     </div>
