@@ -1,0 +1,556 @@
+(ns realty.observation-test
+  "Deterministic contract tests for `realty.observation` (closing-observation/1).
+
+  Every fixture below is SYNTHETIC and marked as such: the registration
+  references, parcels, amounts and extracts are invented for the contract
+  tests and represent NO real record, NO real property and NO real
+  transaction. The receipt URLs are the public provenance URLs the catalog
+  itself already cites (`realty.facts`); the content-hashes are sha256 over
+  the synthetic fixture strings (computed once, hardcoded). No network, no
+  I/O, no model — the whole file runs offline and deterministically."
+  (:require [clojure.test :refer [deftest is testing]]
+            [realty.facts :as facts]
+            [realty.observation :as obs]))
+
+;; --- helpers -----------------------------------------------------------------
+
+(defn- refusal-of
+  "The :refusal/code a thunk raises, or nil if it returned normally."
+  [thunk]
+  (try (thunk) nil (catch Exception e (obs/refusal-code e))))
+
+;; Synthetic sha256 digests over the synthetic fixture strings (computed once
+;; outside the test, hardcoded here — see the fixture strings in the README).
+(def ^:private jpn-registry-hash
+  "b92520687568344419b73bd852c968c0b6364991fe5e219d8d3c911f378ea2ee")
+(def ^:private mlit-price-hash
+  "cf2e13bb78a158f256d23665584bf067f2158273e86dd12a8b2daa3cabdd1614")
+(def ^:private gbr-registry-hash
+  "2b64cbaa183e66e09d971307056526ffb2210c517c8d6e165f0372af8a595738")
+
+(defn- jpn-registry-receipt []
+  (obs/receipt
+   {:receipt/id (str "receipt:" (subs jpn-registry-hash 0 16) ":2026-09-01")
+    :receipt/source-url "https://www.moj.go.jp/MINJI/"
+    :receipt/source-class :official-land-registry
+    :receipt/source-language "ja"
+    :receipt/issuing-entity "法務局（Legal Affairs Bureau）"
+    :receipt/jurisdiction "JPN"
+    :receipt/content-hash jpn-registry-hash
+    :receipt/observed-at "2026-09-01"
+    :receipt/asserted-at "2026-08-28"
+    :receipt/method :verbatim-citation
+    :receipt/note "SYNTHETIC FIXTURE — not a real registry extract; the URL is
+                   the catalog's own provenance citation"}))
+
+(defn- mlit-price-receipt []
+  (obs/receipt
+   {:receipt/id (str "receipt:" (subs mlit-price-hash 0 16) ":2026-09-01")
+    :receipt/source-url "https://www.mlit.go.jp/"
+    :receipt/source-class :official-statistics-agency
+    :receipt/source-language "ja"
+    :receipt/issuing-entity "国土交通省（MLIT）"
+    :receipt/jurisdiction "JPN"
+    :receipt/content-hash mlit-price-hash
+    :receipt/observed-at "2026-09-01"
+    :receipt/asserted-at "2026-08-28"
+    :receipt/method :official-api
+    :receipt/note "SYNTHETIC FIXTURE — not a real price disclosure"}))
+
+(defn- gbr-registry-receipt []
+  (obs/receipt
+   {:receipt/id (str "receipt:" (subs gbr-registry-hash 0 16) ":2026-09-01")
+    :receipt/source-url "https://www.gov.uk/government/organisations/land-registry"
+    :receipt/source-class :official-land-registry
+    :receipt/source-language "en"
+    :receipt/issuing-entity "HM Land Registry"
+    :receipt/jurisdiction "GBR"
+    :receipt/content-hash gbr-registry-hash
+    :receipt/observed-at "2026-09-01"
+    :receipt/asserted-at "2026-08-28"
+    :receipt/method :verbatim-citation
+    :receipt/note "SYNTHETIC FIXTURE — not a real price-paid record"}))
+
+(defn- jpn-subject []
+  (obs/subject {:subject/id "JPN:parcel:SYNTH-0001"
+                :subject/entity-type :parcel
+                :subject/identifier-class :cadastral-parcel-id}))
+
+(defn- gbr-subject []
+  (obs/subject {:subject/id "GBR:title:SYNTH123456"
+                :subject/entity-type :dwelling-unit
+                :subject/identifier-class :title-number}))
+
+(defn- jpn-transfer-event []
+  {:event/type :title-transfer-recorded
+   :event/registration-ref "JPN-SYNTH-260314-0482"
+   :event/recorded-at "2026-03-14"
+   :event/issuer "法務局（Legal Affairs Bureau）"
+   :event/subject-id "JPN:parcel:SYNTH-0001"})
+
+(defn- gbr-transfer-event []
+  {:event/type :title-transfer-recorded
+   :event/registration-ref "SYN123456"
+   :event/recorded-at "2026-02-02"
+   :event/issuer "HM Land Registry"
+   :event/subject-id "GBR:title:SYNTH123456"})
+
+(defn- jpn-price-figure []
+  (obs/figure
+   {:figure/kind :price-paid
+    :figure/raw "金額 34,800,000円（令和8年3月14日時点）［合成値］"
+    :figure/amount 34800000
+    :figure/currency "JPY"
+    :figure/nominal-at "2026-03-14"
+    :figure/event-ref "JPN-SYNTH-260314-0482"
+    :figure/source (:receipt/id (mlit-price-receipt))}))
+
+(defn- jpn-area-figure []
+  (obs/figure
+   {:figure/kind :parcel-area
+    :figure/raw "地積 125.40㎡［合成値］"
+    :figure/value 125.4
+    :figure/unit :m2
+    :figure/source (:receipt/id (jpn-registry-receipt))}))
+
+(defn- gbr-price-figure []
+  (obs/figure
+   {:figure/kind :price-paid
+    :figure/raw "Price paid: GBP 425,000 [synthetic]"
+    :figure/amount 425000
+    :figure/currency "GBP"
+    :figure/nominal-at "2026-02-02"
+    :figure/event-ref "SYN123456"
+    :figure/source (:receipt/id (gbr-registry-receipt))}))
+
+(defn- jpn-observation
+  "First generation: one parcel, one recorded transfer, price + area,
+  receipts for both figures."
+  []
+  (obs/observation
+   {:obs/id "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+    :obs/jurisdiction "JPN"
+    :obs/subject (jpn-subject)
+    :obs/window {:from "2026-01-01" :to "2026-06-30"}
+    :obs/events [(jpn-transfer-event)]
+    :obs/receipts [(jpn-registry-receipt) (mlit-price-receipt)]
+    :obs/figures [(jpn-price-figure) (jpn-area-figure)]
+    :obs/missingness #{}
+    :obs/recorded-at "2026-09-01"}))
+
+(defn- gbr-observation []
+  (obs/observation
+   {:obs/id "obs:GBR:title:SYNTH123456:2026-09-01"
+    :obs/jurisdiction "GBR"
+    :obs/subject (gbr-subject)
+    :obs/window {:from "2026-01-01" :to "2026-06-30"}
+    :obs/events [(gbr-transfer-event)]
+    :obs/receipts [(gbr-registry-receipt)]
+    :obs/figures [(gbr-price-figure)]
+    :obs/missingness #{:area-unavailable}
+    :obs/recorded-at "2026-09-01"}))
+
+;; --- 1. source receipt -------------------------------------------------------
+
+(deftest receipt-freezes-a-source-reading
+  (let [r (jpn-registry-receipt)]
+    (is (= "receipt:b925206875683444:2026-09-01" (:receipt/id r)))
+    (is (= "closing-observation/1" (:receipt/contract-version r)))
+    (is (= :official-land-registry (:receipt/source-class r)))
+    (is (map? r))))
+
+(deftest receipt-refuses-rumors-and-impossible-readings
+  (testing "no content-hash is a rumor"
+    (is (= :receipt/bad-content-hash
+           (refusal-of #(obs/receipt
+                         (assoc (jpn-registry-receipt)
+                                :receipt/content-hash "deadbeef"))))))
+  (testing "http is not https"
+    (is (= :receipt/url-not-https
+           (refusal-of #(obs/receipt
+                         (assoc (jpn-registry-receipt)
+                                :receipt/source-url
+                                "http://www.moj.go.jp/MINJI/"))))))
+  (testing "unknown source class is refused, not guessed"
+    (is (= :receipt/unknown-source-class
+           (refusal-of #(obs/receipt
+                         (assoc (jpn-registry-receipt)
+                                :receipt/source-class :news-report))))))
+  (testing "a reading before the source's own assertion is impossible"
+    (is (= :receipt/observed-before-asserted
+           (refusal-of #(obs/receipt (assoc (jpn-registry-receipt)
+                                            :receipt/observed-at "2026-08-01"
+                                            :receipt/id "receipt:b925206875683444:2026-08-01")))))))
+
+(deftest receipt-edited-after-freezing-is-refused-not-rebranded
+  (let [r (jpn-registry-receipt)
+        edited (assoc r :receipt/content-hash gbr-registry-hash)]
+    (is (= :receipt/stale-id (refusal-of #(obs/receipt edited))))))
+
+;; --- 2+4. typed subject, figures, bases --------------------------------------
+
+(deftest observation-freezes-verbatim-figures-with-their-bases
+  (let [o (jpn-observation)]
+    (is (= "closing-observation/1" (:obs/contract-version o)))
+    (is (= 2 (count (:obs/receipts o))))
+    (is (= #{:price-paid :parcel-area} (set (map :figure/kind (:obs/figures o)))))
+    (is (= "34,800,000" (re-find #"34,800,000" (:figure/raw (jpn-price-figure)))))
+    (is (= "JPY" (:figure/currency (jpn-price-figure))))
+    (is (= "2026-03-14" (:figure/nominal-at (jpn-price-figure))))
+    (is (= :m2 (:figure/unit (jpn-area-figure))))))
+
+(deftest monetary-figures-need-currency-and-their-own-date
+  (is (= :figure/monetary-without-currency
+         (refusal-of #(obs/figure (dissoc (jpn-price-figure) :figure/currency)))))
+  (is (= :figure/monetary-without-currency
+         (refusal-of #(obs/figure (assoc (jpn-price-figure) :figure/currency "jpY")))))
+  (is (= :figure/monetary-without-nominal-at
+         (refusal-of #(obs/figure (dissoc (jpn-price-figure) :figure/nominal-at))))))
+
+(deftest area-figures-need-a-closed-vocabulary-unit
+  (is (= :figure/dimensional-without-area-unit
+         (refusal-of #(obs/figure (dissoc (jpn-area-figure) :figure/unit)))))
+  (is (= :figure/dimensional-without-area-unit
+         (refusal-of #(obs/figure (assoc (jpn-area-figure) :figure/unit :sq-yd)))))
+  (testing "no conversion exists in the contract"
+    (is (nil? (resolve 'realty.observation/convert-area)))))
+
+;; --- privacy boundaries (refused BY CONSTRUCTION) ----------------------------
+
+(deftest street-addresses-cannot-enter-an-observation
+  (is (= :subject/address-refused
+         (refusal-of #(obs/subject (assoc (jpn-subject)
+                                          :subject/address
+                                          "東京都千代田区霞が関1-3-1［合成例］"))))))
+
+(deftest party-data-cannot-enter-an-observation
+  (is (= :event/party-data-refused
+         (refusal-of #(obs/observation
+                       (assoc (jpn-observation)
+                              :obs/events [(assoc (jpn-transfer-event)
+                                                  :event/parties
+                                                  ["売主A" "買主B"])]))))))
+
+;; --- entity separation -------------------------------------------------------
+
+(deftest events-from-another-subject-are-refused
+  (is (= :observation/cross-subject-event
+         (refusal-of #(obs/observation
+                       (assoc (jpn-observation)
+                              :obs/events [(assoc (jpn-transfer-event)
+                                                  :event/subject-id
+                                                  "GBR:title:SYNTH123456")]))))))
+
+(deftest cross-subject-refresh-is-refused-at-append-time
+  (let [history (obs/observe [] (jpn-observation))
+        gbr (assoc (gbr-observation) :obs/refresh-of
+                   "obs:JPN:parcel:SYNTH-0001:2026-09-01")]
+    (is (= :observation/refresh-of-cross-subject
+           (refusal-of #(obs/refresh history
+                                     "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+                                     gbr))))))
+
+;; --- 3. windows --------------------------------------------------------------
+
+(deftest windows-are-validated
+  (is (= :observation/window-inverted
+         (refusal-of #(obs/observation
+                       (assoc (jpn-observation)
+                              :obs/window {:from "2026-06-30" :to "2026-01-01"})))))
+  (is (= :observation/bad-window
+         (refusal-of #(obs/observation
+                       (assoc (jpn-observation) :obs/window {:from "2026-01"})))))
+  (testing "a recorded event outside the window is refused"
+    (is (= :observation/event-outside-window
+           (refusal-of #(obs/observation
+                         (assoc (jpn-observation)
+                                :obs/events [(assoc (jpn-transfer-event)
+                                                    :event/recorded-at
+                                                    "2026-07-01")])))))))
+
+(deftest only-registry-acts-are-observable-events
+  (testing "a listing is a market act, not a registry act — refused"
+    (is (= :observation/unknown-event-type
+           (refusal-of #(obs/observation
+                         (assoc (jpn-observation)
+                                :obs/events [(assoc (jpn-transfer-event)
+                                                    :event/type
+                                                    :listing-published)])))))))
+
+;; --- 6. missingness / coverage honesty ---------------------------------------
+
+(deftest missingness-flags-are-closed-vocabulary
+  (is (= :observation/unknown-missingness-flag
+         (refusal-of #(obs/observation
+                       (assoc (jpn-observation)
+                              :obs/missingness #{:market-hotness}))))))
+
+(deftest a-transfer-without-a-price-figure-must-declare-the-gap
+  (is (= :observation/silence-claims-completeness
+         (refusal-of #(obs/observation
+                       (-> (jpn-observation)
+                           (assoc :obs/figures [(jpn-area-figure)])
+                           (assoc :obs/receipts [(jpn-registry-receipt)])))))))
+
+(deftest a-jurisdiction-without-spec-basis-must-carry-the-gap-flag
+  (let [base (jpn-observation)
+        atl (obs/observation
+             (assoc base
+                    :obs/id "obs:ATL:parcel:SYNTH-0002:2026-09-01"
+                    :obs/jurisdiction "ATL"
+                    :obs/receipts [(obs/receipt
+                                    (assoc (jpn-registry-receipt)
+                                           :receipt/jurisdiction "ATL"
+                                           :receipt/issuing-entity
+                                           "合成試験用登記庁"))]
+                    :obs/figures [(jpn-area-figure)]
+                    :obs/missingness #{:jurisdiction-spec-basis-absent
+                                       :price-unavailable}))]
+    (is (some? atl))
+    (is (= :observation/silence-claims-completeness
+           (refusal-of #(obs/observation
+                         (assoc atl :obs/missingness #{})))))))
+
+;; --- 8. refresh history + verbatim delta --------------------------------------
+
+(deftest duplicate-observation-ids-are-refused
+  (let [history (obs/observe [] (jpn-observation))]
+    (is (= :history/duplicate-observation-id
+           (refusal-of #(obs/observe history (jpn-observation)))))))
+
+(deftest not-an-observation-is-refused
+  (is (= :history/not-an-observation
+         (refusal-of #(obs/observe [] {:obs/id "junk"})))))
+
+(deftest a-subject-cannot-be-re-typed
+  (let [history (obs/observe [] (jpn-observation))
+        re-typed (obs/observation
+                  (assoc (jpn-observation)
+                         :obs/id "obs:JPN:parcel:SYNTH-0001:2026-09-02"
+                         :obs/recorded-at "2026-09-02"
+                         :obs/subject (assoc (jpn-subject)
+                                             :subject/entity-type :building)))]
+    (is (= :history/entity-type-conflict
+           (refusal-of #(obs/observe history re-typed))))))
+
+(defn- jpn-observation-2
+  "Second generation: same subject, wider window, a mortgage registration
+  added, new receipt for the re-read."
+  []
+  (obs/observation
+   {:obs/id "obs:JPN:parcel:SYNTH-0001:2026-09-02"
+    :obs/jurisdiction "JPN"
+    :obs/subject (jpn-subject)
+    :obs/window {:from "2026-01-01" :to "2026-08-31"}
+    :obs/events [(jpn-transfer-event)
+                 {:event/type :mortgage-registered
+                  :event/registration-ref "JPN-SYNTH-260620-0011"
+                  :event/recorded-at "2026-06-20"
+                  :event/issuer "法務局（Legal Affairs Bureau）"
+                  :event/subject-id "JPN:parcel:SYNTH-0001"}]
+    :obs/receipts [(jpn-registry-receipt) (mlit-price-receipt)]
+    :obs/figures [(jpn-price-figure) (jpn-area-figure)]
+    :obs/missingness #{}
+    :obs/recorded-at "2026-09-02"}))
+
+(deftest temporal-refresh-links-and-deltas
+  (let [h (-> [] (obs/observe (jpn-observation)) (obs/refresh "obs:JPN:parcel:SYNTH-0001:2026-09-01" (jpn-observation-2)))
+        g2 (last h)
+        d (obs/refresh-delta (first h) g2)]
+    (is (= "obs:JPN:parcel:SYNTH-0001:2026-09-01" (:obs/refresh-of g2)))
+    (is (= :changed (:delta/kind d)))
+    (is (= 1 (count (:delta/added-events d))))
+    (is (= :mortgage-registered (:event/type (first (:delta/added-events d)))))
+    (is (= 0 (count (:delta/changed-figures d))))
+    (is (= ["receipt:b925206875683444:2026-09-01"
+            "receipt:cf2e13bb78a158f2:2026-09-01"]
+           (:delta/prior-receipts d)))
+    (is (= (:delta/prior-receipts d) (:delta/next-receipts d)))))
+
+(deftest changed-figures-are-carried-in-full-both-sides-no-difference-computed
+  (let [h1 (obs/observe [] (jpn-observation))
+        variant (obs/observation
+                 (assoc (jpn-observation)
+                        :obs/id "obs:JPN:parcel:SYNTH-0001:2026-09-02"
+                        :obs/recorded-at "2026-09-02"
+                        :obs/figures [(obs/figure
+                                       (assoc (jpn-price-figure)
+                                              :figure/amount 36000000))]))
+        d (obs/refresh-delta (first h1) variant)
+        cf (first (:delta/changed-figures d))]
+    (is (= 1 (count (:delta/changed-figures d))))
+    (is (= 34800000 (get-in cf [:delta/prior :figure/amount])))
+    (is (= 36000000 (get-in cf [:delta/next :figure/amount])))
+    (testing "no numeric difference key exists anywhere in the delta"
+      (is (not (contains? d :delta/amount-difference)))
+      (is (nil? (some #(re-find #"difference|total|sum|average"
+                                (name (key %)))
+                      d))))
+    (is (string? (:delta/comparability-note d)))))
+
+(deftest unchanged-refresh-deltas-say-unchanged
+  (let [h (-> []
+              (obs/observe (jpn-observation))
+              (obs/refresh "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+                           (jpn-observation-2)))
+        g3 (obs/observation
+            (assoc (jpn-observation-2)
+                   :obs/id "obs:JPN:parcel:SYNTH-0001:2026-09-03"
+                   :obs/recorded-at "2026-09-03"))
+        h2 (obs/refresh h "obs:JPN:parcel:SYNTH-0001:2026-09-02" g3)
+        d (obs/refresh-delta (second h2) (last h2))]
+    (is (= :unchanged (:delta/kind d)))
+    (is (empty? (:delta/added-events d)))
+    (is (empty? (:delta/gap-added d)))))
+
+(deftest delta-refuses-cross-subject-comparison
+  (is (= :delta/cross-subject
+         (refusal-of #(obs/refresh-delta (jpn-observation) (gbr-observation))))))
+
+;; --- 7. derived observations (counts only) -------------------------------------
+
+(deftest window-observation-is-counts-only
+  (let [w (obs/window-observation (jpn-observation))]
+    (is (= {:title-transfer-recorded 1} (:derived/event-counts w)))
+    (is (= {:price-paid 1 :parcel-area 1} (:derived/figure-counts w)))
+    (is (= ["JPN-SYNTH-260314-0482"] (:derived/registration-refs w)))
+    (is (true? (:derived/no-model w)))
+    (testing "no amounts, no prices, no valuations in the derived shape"
+      (is (nil? (some #(or (re-find #"amount" (name %))
+                           (re-find #"price" (name %))
+                           (re-find #"value" (name %)))
+                      (keys w)))))))
+
+(deftest coverage-observation-counts-the-catalog-honestly
+  (let [c (obs/coverage-observation "2026-09-03")]
+    (is (= (count facts/catalog) (:coverage/jurisdictions-with-spec-basis c)))
+    (is (pos? (:coverage/jurisdictions-with-spec-basis c)))
+    (is (= (:covered (facts/coverage))
+           (:coverage/jurisdictions-with-spec-basis c)))
+    (is (true? (:coverage/no-model c)))
+    (is (string? (:coverage/note c)))))
+
+;; --- 9. hyakka proposal (SHAPE only; nothing transmitted) ----------------------
+
+(deftest hyakka-proposal-carries-claims-bases-and-boundaries
+  (let [p (obs/hyakka-proposal (jpn-observation))]
+    (is (= "fudosan" (:proposal/corpus p)))
+    (is (= "network-awai/app-hyakka" (:proposal/target p)))
+    (is (true? (:proposal/no-model p)))
+    (is (true? (:proposal/props-unregistered p)))
+    (is (= 2 (count (:proposal/figure-claims p))))
+    (is (= 1 (count (:proposal/subject-claims p))))
+    (is (pos? (count (:proposal/epistemic-boundaries p))))
+    (is (pos? (count (:proposal/privacy-boundaries p))))
+    (is (= [] (:proposal/gaps p)))
+    (let [pc (first (filter #(= "fudosan.prop/recorded-price-paid-observation"
+                                (:claim/prop %))
+                            (:proposal/figure-claims p)))]
+      (is (= 34800000 (:claim/amount pc)))
+      (is (= "JPY" (:claim/currency pc)))
+      (is (= "2026-03-14" (:claim/nominal-at pc)))
+      (is (string? (:claim/value-verbatim pc)))
+      (is (string? (:claim/receipt-id pc))))
+    (is (= [] (:proposal/source-class-unmapped p)))))
+
+(deftest hyakka-proposal-flags-unmapped-receipt-classes
+  (let [portal-receipt-id "receipt:aaaaaaaaaaaaaaaa:2026-09-04"
+        portal (obs/observation
+                (assoc (jpn-observation)
+                       :obs/id "obs:JPN:parcel:SYNTH-0001:2026-09-04"
+                       :obs/recorded-at "2026-09-04"
+                       :obs/receipts
+                       [(obs/receipt
+                         (assoc (jpn-registry-receipt)
+                                :receipt/id portal-receipt-id
+                                :receipt/content-hash
+                                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                :receipt/observed-at "2026-09-04"
+                                :receipt/source-class
+                                :official-government-portal))]
+                       :obs/figures
+                       [(obs/figure
+                         (assoc (jpn-area-figure)
+                                :figure/source portal-receipt-id))]
+                       :obs/missingness #{:price-unavailable}))
+        p (obs/hyakka-proposal portal)]
+    (is (= ["official-government-portal"] (:proposal/source-class-unmapped p)))))
+
+;; --- 10. query / readback ------------------------------------------------------
+
+(deftest readback-returns-the-latest-at-or-before-as-of
+  (let [h (-> []
+              (obs/observe (jpn-observation))
+              (obs/refresh "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+                           (jpn-observation-2)))]
+    (is (= "obs:JPN:parcel:SYNTH-0001:2026-09-02"
+           (:obs/id (obs/readback h "JPN:parcel:SYNTH-0001" "2026-09-02"))))
+    (is (= "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+           (:obs/id (obs/readback h "JPN:parcel:SYNTH-0001" "2026-09-01"))))))
+
+(deftest readback-miss-is-a-miss
+  (let [h (obs/observe [] (jpn-observation))]
+    (is (nil? (obs/readback h "GBR:title:SYNTH123456" "2026-09-02")))
+    (is (nil? (obs/readback h "JPN:parcel:SYNTH-0001" "2026-08-31")))))
+
+(deftest readback-refuses-tampered-receipts
+  (let [h (obs/observe [] (jpn-observation))
+        tampered (update-in h [0 :obs/receipts 0] assoc
+                            :receipt/content-hash gbr-registry-hash)]
+    (is (= :receipt/stale-id
+           (refusal-of #(obs/readback tampered "JPN:parcel:SYNTH-0001" "2026-09-02"))))
+    (is (= :readback/tampered-receipt
+           (refusal-of #(obs/readback (update-in h [0 :obs/receipts 0] dissoc
+                                                  :receipt/contract-version)
+                                       "JPN:parcel:SYNTH-0001" "2026-09-02"))))))
+
+(deftest readback-chain-walks-oldest-first-with-aligned-deltas
+  (let [h (-> []
+              (obs/observe (jpn-observation))
+              (obs/refresh "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+                           (jpn-observation-2)))
+        {:keys [chain deltas]} (obs/readback-chain h "JPN:parcel:SYNTH-0001")]
+    (is (= 2 (count chain)))
+    (is (= ["obs:JPN:parcel:SYNTH-0001:2026-09-01"
+            "obs:JPN:parcel:SYNTH-0001:2026-09-02"]
+           (mapv :obs/id chain)))
+    (is (= 1 (count deltas)))
+    (is (= :changed (:delta/kind (first deltas))))
+    (is (= (:obs/id (second chain)) (:delta/next-id (first deltas))))))
+
+(deftest readback-chain-refuses-broken-cyclic-and-cross-subject-lineage
+  (let [broken (obs/observation
+                (assoc (jpn-observation-2) :obs/refresh-of "obs:ghost"))
+        hb (obs/observe [] broken)
+        ;; true cycle: a refreshes b, b refreshes a
+        a (obs/observation
+           (assoc (jpn-observation)
+                  :obs/refresh-of "obs:JPN:parcel:SYNTH-0001:2026-09-02"))
+        b (obs/observation
+           (assoc (jpn-observation-2) :obs/refresh-of
+                  "obs:JPN:parcel:SYNTH-0001:2026-09-01"))
+        hc (-> [] (obs/observe a) (obs/observe b))
+        ;; cross-subject chain element: the GBR generation claims to refresh
+        ;; the JPN generation
+        cross (obs/observation
+               (assoc (gbr-observation)
+                      :obs/id "obs:GBR:title:SYNTH123456:2026-09-03"
+                      :obs/recorded-at "2026-09-03"
+                      :obs/refresh-of "obs:JPN:parcel:SYNTH-0001:2026-09-01"))
+        hx (-> [] (obs/observe (jpn-observation)) (obs/observe cross))]
+    (is (= :readback/broken-lineage
+           (refusal-of #(obs/readback-chain hb "JPN:parcel:SYNTH-0001"))))
+    (is (= :readback/cyclic-lineage
+           (refusal-of #(obs/readback-chain hc "JPN:parcel:SYNTH-0001"))))
+    (is (= :readback/chain-cross-subject
+           (refusal-of #(obs/readback-chain hx "GBR:title:SYNTH123456"))))))
+
+;; --- 5. determinism ------------------------------------------------------------
+
+(deftest the-contract-is-deterministic
+  (let [o1 (jpn-observation) o2 (jpn-observation)]
+    (is (= o1 o2))
+    (is (= (obs/window-observation o1) (obs/window-observation o2)))
+    (is (= (obs/hyakka-proposal o1) (obs/hyakka-proposal o2)))
+    (is (= (obs/coverage-observation "2026-09-03")
+           (obs/coverage-observation "2026-09-03")))))

@@ -137,7 +137,8 @@ Resolves via [`kotoba-lang/industry`](https://github.com/kotoba-lang/industry)
 | `src/realty/operation.cljc` | **OperationActor** -- langgraph-clj StateGraph |
 | `src/realty/corporate_intel.cljc` | optional cross-reference into [`cloud-itonami-isic-8291`](https://github.com/cloud-itonami/cloud-itonami-isic-8291)'s `:disclosure/screen-name` -- catches a party clean on every LOCAL field but flagged in 8291's own sourced PEP/sanctions data; wired into `screen-kyc` via an injected fn, default is a no-op so every prior caller's behavior is unchanged unless explicitly opted in |
 | `src/realty/sim.cljc` | demo driver |
-| `test/realty/*_test.clj` | governor contract · phase invariants · store parity · registry conformance · facts coverage · corporate-intelligence integration |
+| `src/realty/observation.cljc` | **Observation contract** (`closing-observation/1`) -- provenance-preserving observations of RECORDED registry events over official sources; separate from the actor's own drafts |
+| `test/realty/*_test.clj` | governor contract · phase invariants · store parity · registry conformance · facts coverage · corporate-intelligence integration · observation contract |
 
 ## Jurisdiction coverage (honest)
 
@@ -164,6 +165,60 @@ The broker is optional, but this actor never substitutes for the Dutch
 `notaris`: deed approval/signing, Kadaster submission/registration and
 release of sale proceeds remain explicit human gates. See
 [`docs/nld-operator-guide.md`](docs/nld-operator-guide.md) and ADR-0002.
+
+## The observation contract (`closing-observation/1`)
+
+`realty.observation` is the actor's **observation layer**: how a reading of
+an OFFICIAL source (land registry, cadastre, statistics agency) becomes a
+provenance-preserving, re-observable claim about **recorded** property
+events -- and what such a claim can never become. It is deliberately
+SEPARATE from `realty.registry` (the actor's own closing drafts): drafts are
+what this actor prepares under a human gate; observations are what external
+official sources show. An observation is never an execution and never feeds
+back into a closing decision.
+
+One contract, twelve parts: **source receipts** (frozen, content-hash
+addressed, id derived from hash + observed-at; an edited receipt is refused,
+not re-branded) · **typed subject + events** (a property identified ONLY by
+a jurisdiction-scoped registry identifier -- never a street address; typed
+registry acts only, so a listing is not an observable event here; party data
+and addresses are refused BY CONSTRUCTION) · **measurement window** (every
+observation states `{:from :to}`, events must fall inside) · **currency and
+area basis** (amounts carry ISO-4217 currency + their own nominal date,
+dimensions carry a closed-vocabulary unit, both carry the verbatim raw
+transcription; nothing is normalized, converted or combined) · **method /
+version** (`closing-observation/1` on every artifact; no model anywhere) ·
+**missingness / coverage** (closed flag vocabulary; a jurisdiction without a
+`realty.facts` spec-basis must carry `:jurisdiction-spec-basis-absent`, a
+recorded transfer without a price figure must carry `:price-unavailable` --
+silence would claim completeness) · **derived observations** (`window-observation`
+and `coverage-observation`: COUNTS and verbatim registration references
+only -- never a price, trend, valuation or market measure) · **refresh
+history** (append-only lineage via `:obs/refresh-of`, cross-subject links
+refused at append time; `refresh-delta` carries added / removed / changed
+figures IN FULL on both sides plus gap movement and both generations'
+receipt ids, and computes no numeric difference anywhere) · **Hyakka
+proposal** (`hyakka-proposal` builds the claim SHAPE for the `fudosan`
+corpus -- receipts, verbatim values, bases, gaps, the scope's epistemic and
+privacy boundaries, `:no-model true`; prop names are contract-local and
+flagged unregistered; this contract transmits nothing anywhere) · **query /
+readback** (`readback` revalidates everything it returns and refuses
+tampered receipts; a miss is a miss, never a default; `readback-chain`
+walks the full lineage oldest-first, refusing truncated, cyclic or
+cross-subject chains) · **history discipline** (duplicate ids refused; a
+parcel is not a building -- re-typing a subject is refused) · **refusals**
+(53 loud `:refusal/code` failures instead of quiet degradation).
+
+WHAT THIS CONTRACT NEVER PRODUCES: a valuation, a market score, a ranking
+of properties / neighbourhoods / jurisdictions, an ownership claim about any
+person (a registered title is not beneficial ownership, and parties are not
+carried at all), or investment advice of any kind. Recorded-transaction
+prices are observations of what a source disclosed -- not current market
+value, not a valuation service, and not an offer.
+
+Deterministic contract tests: `test/realty/observation_test.clj` -- 32
+tests over synthetic fixtures only (marked as such; the receipt URLs are
+the catalog's own provenance citations; no network, no I/O, no model).
 
 ## License
 
