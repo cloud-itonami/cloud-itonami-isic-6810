@@ -84,7 +84,7 @@
   prices are observations of what a source disclosed — not current market
   value, not a property valuation service, and not an offer."
   (:require [clojure.set :as set]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [realty.facts :as facts]))
 
 ;; --- identity --------------------------------------------------------------
