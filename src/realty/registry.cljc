@@ -16,7 +16,7 @@
   the act of recording itself (that is `realty.operation`'s
   `:closing/submit`, which is always human-gated -- see README
   `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is the
@@ -48,7 +48,7 @@
     (throw (ex-info "closing: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "closing: sequence must be >= 0" {})))
-  (let [closing-number (str (str/upper-case jurisdiction) "-" (zero-pad sequence 8))
+  (let [closing-number (str (str/upper jurisdiction) "-" (zero-pad sequence 8))
         record {"record_id" closing-number
                 "kind" "closing-draft"
                 "address" address
