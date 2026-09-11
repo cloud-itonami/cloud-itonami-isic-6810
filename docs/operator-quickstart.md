@@ -50,17 +50,17 @@ Output includes the closing record, audit ledger entries, and governor decision 
 
 The **RealtorGovernor** is the independent approval layer that wraps the Realtor-LLM.
 
-- **File:** `src/realty/governor.cljc`
+- **File:** `src/realty/governor.cljk`
 - **Role:** spec-basis validation, sanctions screening, document completeness, confidence floor, actuation gate
 - **Key gate:** `(governor/actuation governor ...)` — controls whether a high-stakes action (title recording, escrow disbursement) can proceed (returns `:hold` or `:commit`)
 - **Spec basis:** All holds cite the jurisdiction's official requirement source; no fabricated law
 - **Contract:** Once a hold is issued (e.g., sanctions hit), it **cannot be overridden** by any phase or role
 
 Related files:
-- `src/realty/phase.cljc` — phase-table enforcement (0→3, closing always supervised)
-- `src/realty/operation.cljc` — the StateGraph actor that orchestrates Realtor-LLM → Governor → human approval
-- `src/realty/facts.cljc` — per-jurisdiction disclosure/title requirement catalog with spec-basis citations
-- `test/realty/phase_test.clj` — test verifying `:closing/submit` is never auto-approved at any phase
+- `src/realty/phase.cljk` — phase-table enforcement (0→3, closing always supervised)
+- `src/realty/operation.cljk` — the StateGraph actor that orchestrates Realtor-LLM → Governor → human approval
+- `src/realty/facts.cljk` — per-jurisdiction disclosure/title requirement catalog with spec-basis citations
+- `test/realty/phase_test.cljk` — test verifying `:closing/submit` is never auto-approved at any phase
 
 ## Access the Operator Console
 
@@ -84,8 +84,8 @@ For jurisdiction-specific details (e.g., Dutch closing profile), see [`docs/nld-
 ## Next Steps
 
 1. **Fork** this repo on GitHub
-2. **Customize** `src/realty/facts.cljc` with your jurisdiction's requirements
-3. **Extend** `src/realty/corporate_intel.cljc` to integrate your own sanctions/PEP data sources
+2. **Customize** `src/realty/facts.cljk` with your jurisdiction's requirements
+3. **Extend** `src/realty/corporate_intel.cljk` to integrate your own sanctions/PEP data sources
 4. **Deploy** with your real KYC/AML program, land-registry integration, and escrow partner
 5. **Operate** as a licensed agent/operator; the actor provides the governance scaffold, not the license
 

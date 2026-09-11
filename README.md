@@ -51,7 +51,7 @@ never autonomous, at any phase, by construction.** Two independent layers
 enforce this (`realty.governor`'s `:actuation` high-stakes gate and
 `realty.phase`'s phase table, which never puts `:closing/submit` in any
 phase's `:auto` set) -- see `realty.phase`'s docstring and
-`test/realty/phase_test.clj`'s `closing-submit-never-auto-at-any-phase`.
+`test/realty/phase_test.cljk`'s `closing-submit-never-auto-at-any-phase`.
 The actor may draft, check, screen and recommend; a human operator (the
 licensed agent / closing attorney) is always the one who actually records
 the transfer and releases escrow funds.
@@ -128,16 +128,16 @@ Resolves via [`kotoba-lang/industry`](https://github.com/kotoba-lang/industry)
 
 | File | Role |
 |---|---|
-| `src/realty/store.cljc` | **Store** protocol -- `MemStore` ‖ `DatomicStore` (`langchain.db`) + append-only audit ledger + closing-record history |
-| `src/realty/registry.cljc` | Closing/title-transfer draft records (no fabricated international check-digit standard -- see docstring) |
-| `src/realty/facts.cljc` | Per-jurisdiction disclosure/title requirement catalog with an official spec-basis citation per entry, honest coverage reporting |
-| `src/realty/realtorllm.cljc` | **Realtor-LLM Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/disclosure/KYC/closing proposals |
-| `src/realty/governor.cljc` | **RealtorGovernor** -- spec-basis · sanctions hold · document-complete · confidence floor · actuation gate |
-| `src/realty/phase.cljc` | **Phase 0→3** -- read-only → assisted intake → assisted assess/screen → supervised (closing always human) |
-| `src/realty/operation.cljc` | **OperationActor** -- langgraph-clj StateGraph |
-| `src/realty/corporate_intel.cljc` | optional cross-reference into [`cloud-itonami-isic-8291`](https://github.com/cloud-itonami/cloud-itonami-isic-8291)'s `:disclosure/screen-name` -- catches a party clean on every LOCAL field but flagged in 8291's own sourced PEP/sanctions data; wired into `screen-kyc` via an injected fn, default is a no-op so every prior caller's behavior is unchanged unless explicitly opted in |
-| `src/realty/sim.cljc` | demo driver |
-| `src/realty/observation.cljc` | **Observation contract** (`closing-observation/1`) -- provenance-preserving observations of RECORDED registry events over official sources; separate from the actor's own drafts |
+| `src/realty/store.cljk` | **Store** protocol -- `MemStore` ‖ `DatomicStore` (`langchain.db`) + append-only audit ledger + closing-record history |
+| `src/realty/registry.cljk` | Closing/title-transfer draft records (no fabricated international check-digit standard -- see docstring) |
+| `src/realty/facts.cljk` | Per-jurisdiction disclosure/title requirement catalog with an official spec-basis citation per entry, honest coverage reporting |
+| `src/realty/realtorllm.cljk` | **Realtor-LLM Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/disclosure/KYC/closing proposals |
+| `src/realty/governor.cljk` | **RealtorGovernor** -- spec-basis · sanctions hold · document-complete · confidence floor · actuation gate |
+| `src/realty/phase.cljk` | **Phase 0→3** -- read-only → assisted intake → assisted assess/screen → supervised (closing always human) |
+| `src/realty/operation.cljk` | **OperationActor** -- langgraph-clj StateGraph |
+| `src/realty/corporate_intel.cljk` | optional cross-reference into [`cloud-itonami-isic-8291`](https://github.com/cloud-itonami/cloud-itonami-isic-8291)'s `:disclosure/screen-name` -- catches a party clean on every LOCAL field but flagged in 8291's own sourced PEP/sanctions data; wired into `screen-kyc` via an injected fn, default is a no-op so every prior caller's behavior is unchanged unless explicitly opted in |
+| `src/realty/sim.cljk` | demo driver |
+| `src/realty/observation.cljk` | **Observation contract** (`closing-observation/1`) -- provenance-preserving observations of RECORDED registry events over official sources; separate from the actor's own drafts |
 | `test/realty/*_test.clj` | governor contract · phase invariants · store parity · registry conformance · facts coverage · corporate-intelligence integration · observation contract |
 
 ## Jurisdiction coverage (honest)
@@ -216,7 +216,7 @@ carried at all), or investment advice of any kind. Recorded-transaction
 prices are observations of what a source disclosed -- not current market
 value, not a valuation service, and not an offer.
 
-Deterministic contract tests: `test/realty/observation_test.clj` -- 32
+Deterministic contract tests: `test/realty/observation_test.cljk` -- 32
 tests over synthetic fixtures only (marked as such; the receipt URLs are
 the catalog's own provenance citations; no network, no I/O, no model).
 
