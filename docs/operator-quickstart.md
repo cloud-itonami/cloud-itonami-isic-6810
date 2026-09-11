@@ -22,7 +22,7 @@ If you're working in the monorepo, all dependencies resolve to local checkouts:
 ## Run Tests
 
 ```bash
-clojure -M:dev:test
+kbb -M:dev:test
 ```
 
 This runs the full test suite:
@@ -37,7 +37,7 @@ Key invariant verified: **`:closing/submit` is never in any phase's `:auto` set.
 ## Run the Demo
 
 ```bash
-clojure -M:dev:run
+kbb -M:dev:run
 ```
 
 This walks two scenarios through the actor:
