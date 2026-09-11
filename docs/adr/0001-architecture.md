@@ -80,10 +80,10 @@ jurisdiction requirements.
   and HR (`cloud-itonami-6310`), without centralizing liability in one
   vendor -- any licensed operator can fork and run their own instance.
 - (+) The actuation invariant (governor + phase, two layers) is
-  regression-tested by `test/realty/phase_test.clj`'s
+  regression-tested by `test/realty/phase_test.cljk`'s
   `closing-submit-never-auto-at-any-phase`.
 - (+) `MemStore` ‖ `DatomicStore` parity is proven by
-  `test/realty/store_contract_test.clj`, the same `:db-api`-driven swap
+  `test/realty/store_contract_test.cljk`, the same `:db-api`-driven swap
   pattern `formation.store` / `talent.store` / `itonami.store` use.
 - (-) This R0 seeds only 5 jurisdictions (JPN, USA-CA, GBR, DEU, AUS-NSW)
   with an official spec-basis, out of ~194 worldwide; `realty.facts/coverage`
