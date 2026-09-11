@@ -9,8 +9,8 @@ business blueprint, the Realtor-LLM ⊣ RealtorGovernor actor (`src/realty/`)
 and operator contracts.
 
 ```bash
-clojure -M:dev:test
-clojure -M:lint
+kbb -M:dev:test
+kbb -M:lint
 ```
 
 ## Rules

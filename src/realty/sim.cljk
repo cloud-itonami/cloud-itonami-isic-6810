@@ -1,5 +1,5 @@
 (ns realty.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clean listing through
+  "Demo driver -- `kbb -M:dev:run`. Walks a clean listing through
   intake -> jurisdiction disclosure assessment -> KYC screening -> closing
   proposal (always escalates) -> human approval -> commit, then shows a
   HARD hold (a sanctions hit) that never reaches a human at all, and
