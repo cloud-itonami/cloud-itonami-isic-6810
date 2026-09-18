@@ -1,5 +1,5 @@
 (ns realty.observation-test
-  "Deterministic contract tests for `realty.observation` (closing-observation/1).
+  "Deterministic contract tests for `realty.observation` (closing-observation/2; /1 artifacts stay readable via the sole-receipt fallback and known-versions).
 
   Every fixture below is SYNTHETIC and marked as such: the registration
   references, parcels, amounts and extracts are invented for the contract
@@ -17,7 +17,7 @@
 (defn- refusal-of
   "The :refusal/code a thunk raises, or nil if it returned normally."
   [thunk]
-  (try (thunk) nil (catch Exception e (obs/refusal-code e))))
+  (try (thunk) nil (catch :default e (obs/refusal-code e))))
 
 ;; Synthetic sha256 digests over the synthetic fixture strings (computed once
 ;; outside the test, hardcoded here — see the fixture strings in the README).
@@ -155,7 +155,7 @@
 (deftest receipt-freezes-a-source-reading
   (let [r (jpn-registry-receipt)]
     (is (= "receipt:b925206875683444:2026-09-01" (:receipt/id r)))
-    (is (= "closing-observation/1" (:receipt/contract-version r)))
+    (is (= "closing-observation/2" (:receipt/contract-version r)))
     (is (= :official-land-registry (:receipt/source-class r)))
     (is (map? r))))
 
@@ -191,7 +191,7 @@
 
 (deftest observation-freezes-verbatim-figures-with-their-bases
   (let [o (jpn-observation)]
-    (is (= "closing-observation/1" (:obs/contract-version o)))
+    (is (= "closing-observation/2" (:obs/contract-version o)))
     (is (= 2 (count (:obs/receipts o))))
     (is (= #{:price-paid :parcel-area} (set (map :figure/kind (:obs/figures o)))))
     (is (= "34,800,000" (re-find #"34,800,000" (:figure/raw (jpn-price-figure)))))
@@ -554,3 +554,271 @@
     (is (= (obs/hyakka-proposal o1) (obs/hyakka-proposal o2)))
     (is (= (obs/coverage-observation "2026-09-03")
            (obs/coverage-observation "2026-09-03")))))
+
+;; --- v2: figure receipt attribution (sole-receipt fallback, never guessed) ----
+
+(deftest figure-without-receipt-falls-back-to-the-sole-receipt
+  (let [o (obs/observation
+           (assoc (gbr-observation)
+                  :obs/figures [(dissoc (gbr-price-figure) :figure/source)]))]
+    (is (= "closing-observation/2" (:obs/contract-version o)))
+    (is (= (:receipt/id (gbr-registry-receipt))
+           (:figure/source (first (:obs/figures o)))))))
+
+(deftest figure-without-receipt-under-several-receipts-is-ambiguous-refused
+  (testing "several receipts, none named — attribution is never guessed"
+    (is (= :figure/ambiguous-receipt-attribution
+           (refusal-of #(obs/observation
+                         (assoc (jpn-observation)
+                                :obs/figures
+                                [(dissoc (jpn-price-figure) :figure/source)
+                                 (jpn-area-figure)])))))))
+
+(deftest figure-naming-an-unknown-receipt-is-still-refused
+  (is (= :observation/unknown-figure-receipt
+         (refusal-of #(obs/observation
+                       (assoc (gbr-observation)
+                              :obs/figures
+                              [(assoc (gbr-price-figure)
+                                      :figure/source
+                                      "receipt:not-in-this-obs:2026-09-01")]))))))
+
+(deftest frozen-v1-artifacts-stay-first-class-after-the-bump
+  (let [v1 (-> (jpn-observation)
+               (assoc :obs/contract-version "closing-observation/1"
+                      :obs/id "obs:JPN:parcel:SYNTH-0001:2026-08-01"
+                      :obs/recorded-at "2026-08-01")
+               (update :obs/receipts
+                       (fn [rs] (mapv #(assoc % :receipt/contract-version
+                                              "closing-observation/1")
+                                      rs))))
+        history [v1 (jpn-observation)]]
+    (is (= "closing-observation/1"
+           (:obs/contract-version
+            (obs/readback history "JPN:parcel:SYNTH-0001" "2026-08-01"))))
+    (is (= 1 (count (obs/observe [] v1))))
+    (is (seq (:proposal/figure-claims (obs/hyakka-proposal v1))))))
+
+;; --- v2: refresh-delta names re-attributed figures ----------------------------
+
+(deftest refresh-delta-names-re-attributed-figures
+  (let [second-receipt (obs/receipt
+                        (assoc (gbr-registry-receipt)
+                               :receipt/observed-at "2026-09-02"
+                               :receipt/id
+                               "receipt:2b64cbaa183e66e0:2026-09-02"))
+        prior (gbr-observation)
+        next (obs/observation
+              (assoc (gbr-observation)
+                     :obs/id "obs:GBR:title:SYNTH123456:2026-09-02"
+                     :obs/recorded-at "2026-09-02"
+                     :obs/receipts [(gbr-registry-receipt) second-receipt]
+                     :obs/figures [(assoc (gbr-price-figure)
+                                          :figure/source
+                                          (:receipt/id second-receipt))]))
+        d (obs/refresh-delta prior next)]
+    (is (= 1 (count (:delta/re-attributed d))))
+    (is (= (:receipt/id (gbr-registry-receipt))
+           (:delta/prior-receipt (first (:delta/re-attributed d)))))
+    (is (= (:receipt/id second-receipt)
+           (:delta/next-receipt (first (:delta/re-attributed d)))))
+    (is (= :changed (:delta/kind d)))))
+
+(deftest unchanged-refresh-delta-has-no-re-attribution
+  (let [prior (gbr-observation)
+        next (obs/observation
+              (assoc (gbr-observation)
+                     :obs/id "obs:GBR:title:SYNTH123456:2026-09-02"
+                     :obs/recorded-at "2026-09-02"))
+        d (obs/refresh-delta prior next)]
+    (is (= :unchanged (:delta/kind d)))
+    (is (empty? (:delta/re-attributed d)))))
+
+;; --- v2: typed published-change events ----------------------------------------
+
+(defn- jpn-amendment-event
+  ([] (jpn-amendment-event "2026-09-18"))
+  ([recorded-at]
+   (obs/event
+    {:event/kind :amendment-announced
+     :event/subject (jpn-subject)
+     :event/jurisdiction "JPN"
+     :event/effective-at "2026-10-01"
+     :event/recorded-at recorded-at
+     :event/announcement-raw
+     "登記申請手続きの変更について（出典の言葉［合成文］）— SYNTHETIC
+      FIXTURE, not a real announcement."
+     :event/receipts [(jpn-registry-receipt)]
+     :event/missingness #{}})))
+
+(defn- gbr-amendment-event []
+  (obs/event
+   {:event/kind :registry-service-change
+    :event/subject (gbr-subject)
+    :event/jurisdiction "GBR"
+    :event/effective-at "2026-11-01"
+    :event/recorded-at "2026-09-19"
+    :event/announcement-raw "Registry service change [SYNTHETIC FIXTURE]."
+    :event/receipts [(gbr-registry-receipt)]
+    :event/missingness #{}}))
+
+(deftest event-freezes-a-published-change-with-its-source-stated-effective-date
+  (let [ev (jpn-amendment-event)]
+    (is (= "evt:JPN:JPN:parcel:SYNTH-0001:amendment-announced:2026-10-01:2026-09-18"
+           (:event/id ev)))
+    (is (= "closing-observation/2" (:event/method ev)))
+    (is (= :amendment-announced (:event/kind ev)))
+    (is (= "2026-10-01" (:event/effective-at ev)))
+    (is (some? (:event/announcement-raw ev)))))
+
+(deftest event-refuses-rumors-and-impossible-kinds
+  (is (= :event/unknown-kind
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/kind :price-forecast-announced)))))
+  (is (= :event/missing-field
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/announcement-raw nil)))))
+  (is (= :event/empty-announcement
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/announcement-raw "   ")))))
+  (is (= :event/bad-effective-at
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/effective-at "October 1")))))
+  (is (= :event/no-receipts
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/receipts [])))))
+  (is (= :event/cross-jurisdiction-receipt
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/jurisdiction "GBR")))))
+  (is (= :event/party-data-refused
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/parties ["borrower X"])))))
+  (is (= :event/unknown-missingness-flag
+         (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                        :event/missingness #{:made-up-gap}))))))
+
+(deftest event-figures-follow-the-same-attribution-discipline
+  (testing "sole receipt: a figure naming no receipt falls back"
+    (let [ev (obs/event (assoc (jpn-amendment-event)
+                               :event/figures
+                               [(dissoc (jpn-area-figure) :figure/source)]))]
+      (is (= (:receipt/id (jpn-registry-receipt))
+             (:figure/source (first (:event/figures ev)))))))
+  (testing "several receipts, none named — refused, never guessed"
+    (is (= :figure/ambiguous-receipt-attribution
+           (refusal-of #(obs/event (assoc (jpn-amendment-event)
+                                          :event/receipts
+                                          [(jpn-registry-receipt)
+                                           (mlit-price-receipt)]
+                                          :event/figures
+                                          [(dissoc (jpn-area-figure)
+                                                   :figure/source)])))))))
+
+(deftest events-refresh-events-never-observations
+  (let [e1 (jpn-amendment-event "2026-09-18")
+        h1 (obs/record-event [] e1)
+        e2 (jpn-amendment-event "2026-09-19")]
+    (is (= 1 (count h1)))
+    (is (= 2 (count (obs/refresh-event h1 (:event/id e1) e2))))
+    (is (= (:event/id e1) (:event/refresh-of
+                           (second (obs/refresh-event h1 (:event/id e1) e2)))))
+    (is (= :event/duplicate-event-id
+           (refusal-of #(obs/record-event h1 (jpn-amendment-event "2026-09-18")))))
+    (is (= :event/refresh-of-self
+           (refusal-of #(obs/refresh-event h1 (:event/id e1)
+                                           (jpn-amendment-event "2026-09-18")))))
+    (is (= :event/refresh-of-unknown
+           (refusal-of #(obs/refresh-event h1 "evt:nope" e2))))
+    (is (= :event/refresh-of-observation
+           (refusal-of #(obs/refresh-event (conj (vec h1) (jpn-observation))
+                                           "obs:JPN:parcel:SYNTH-0001:2026-09-01"
+                                           e2))))
+    (is (= :event/refresh-of-cross-subject
+           (refusal-of #(obs/refresh-event h1 (:event/id e1)
+                                           (gbr-amendment-event)))))))
+
+(deftest readback-events-returns-the-latest-revalidated-generation-or-nil
+  (let [e1 (jpn-amendment-event "2026-09-18")
+        h1 (obs/record-event [] e1)
+        e2 (jpn-amendment-event "2026-09-19")
+        h2 (obs/refresh-event h1 (:event/id e1) e2)]
+    (is (= (:event/id e2)
+           (:event/id (obs/readback-events h2 "JPN:parcel:SYNTH-0001"
+                                           "2026-09-19"))))
+    (is (= (:event/id e1)
+           (:event/id (obs/readback-events h2 "JPN:parcel:SYNTH-0001"
+                                           "2026-09-18"))))
+    (is (nil? (obs/readback-events h2 "JPN:parcel:SYNTH-0001" "2026-09-17")))
+    (is (nil? (obs/readback-events [(jpn-observation)] "JPN:parcel:SYNTH-0001"
+                                    "2026-09-19")))))
+
+(deftest readback-events-refuses-a-tampered-receipt
+  (let [ev (assoc (jpn-amendment-event)
+                  :event/receipts
+                  [(dissoc (jpn-registry-receipt) :receipt/contract-version)])]
+    (is (= :readback/tampered-receipt
+           (refusal-of #(obs/readback-events [ev] "JPN:parcel:SYNTH-0001"
+                                             "2026-09-19"))))))
+
+(deftest readback-event-chain-walks-oldest-first-with-pairwise-deltas
+  (let [e1 (jpn-amendment-event "2026-09-18")
+        e2 (jpn-amendment-event "2026-09-19")
+        h2 (obs/refresh-event (obs/record-event [] e1) (:event/id e1) e2)
+        {:keys [chain deltas]} (obs/readback-event-chain h2
+                                                         "JPN:parcel:SYNTH-0001")]
+    (is (= 2 (count chain)))
+    (is (= (:event/id e1) (:event/id (first chain))))
+    (is (= (:event/id e2) (:event/id (second chain))))
+    (is (= 1 (count deltas)))
+    (is (= :unchanged (:event-delta/kind (first deltas))))
+    (is (= true (:event-delta/announcement-not-prediction (first deltas))))))
+
+(deftest readback-event-chain-refuses-broken-cyclic-and-cross-subject-lineages
+  (testing "a link to an observation id is refused at readout too"
+    (let [e1 (assoc (jpn-amendment-event)
+                    :event/refresh-of "obs:JPN:parcel:SYNTH-0001:2026-09-01")]
+      (is (= :event/refresh-of-observation
+             (refusal-of #(obs/readback-event-chain
+                            [e1 (jpn-observation)] "JPN:parcel:SYNTH-0001"))))))
+  (testing "a truncated lineage is refused"
+    (let [e2 (assoc (jpn-amendment-event "2026-09-19")
+                    :event/refresh-of "evt:gone")]
+      (is (= :readback/broken-lineage
+             (refusal-of #(obs/readback-event-chain
+                            [e2] "JPN:parcel:SYNTH-0001"))))))
+  (testing "a cyclic lineage is refused"
+    (let [e1 (assoc (jpn-amendment-event)
+                    :event/refresh-of (:event/id (jpn-amendment-event)))]
+      (is (= :readback/cyclic-lineage
+             (refusal-of #(obs/readback-event-chain
+                            [e1] "JPN:parcel:SYNTH-0001"))))))
+  (testing "a cross-subject chain element is refused"
+    (let [forged {:event/id "evt:GBR:SYNTH123456:forge"
+                  :event/method "closing-observation/2"
+                  :event/kind :registry-service-change
+                  :event/subject (gbr-subject)
+                  :event/jurisdiction "GBR"
+                  :event/effective-at "2026-11-01"
+                  :event/recorded-at "2026-09-19"
+                  :event/announcement-raw "synthetic announcement text"
+                  :event/receipts [(gbr-registry-receipt)]
+                  :event/missingness #{}
+                  :event/refresh-of
+                  (:event/id (jpn-amendment-event))}]
+      (is (= :readback/chain-cross-subject
+             (refusal-of #(obs/readback-event-chain
+                            [(jpn-amendment-event) forged]
+                            "GBR:title:SYNTH123456")))))))
+
+(deftest hyakka-event-proposal-is-a-stamped-shape-not-a-sending
+  (let [p (obs/hyakka-event-proposal (jpn-amendment-event))]
+    (is (= true (:proposal/announcement-not-prediction p)))
+    (is (= true (:proposal/no-model p)))
+    (is (= true (:proposal/props-unregistered p)))
+    (is (= :published-change-event (:proposal/kind p)))
+    (is (= "2026-10-01" (:proposal/effective-at p)))
+    (is (= "2026-09-18" (:proposal/recorded-at p)))
+    (is (seq (:proposal/epistemic-boundaries p)))
+    (is (seq (:proposal/privacy-boundaries p)))
+    (is (= 1 (count (:proposal/receipt-ids p))))
+    (is (empty? (:proposal/figure-claims p)))))
