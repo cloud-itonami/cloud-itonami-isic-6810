@@ -100,7 +100,7 @@
   not carried at all), or investment advice of any kind. Recorded-transaction
   prices are observations of what a source disclosed — not current market
   value, not a property valuation service, and not an offer."
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [kotoba.lang.text :as str]
             [realty.facts :as facts]))
 
