@@ -1,0 +1,43 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README "Robotics premise": a showing, cleaning and inspection robot performs
+;; the physical property work (ISIC 6810, real estate with own or leased
+;; property). Its physical work: a floor scrubber carrying its clean-water tank
+;; up the lobby ramp, dumping its recovery (dirty-water) tank at the service
+;; sink, and checking how hot the top-floor ceiling of a unit gets under a
+;; summer roof before a showing.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isic-6810"
+ :cases
+ [{:id :scrubber-up-lobby-ramp
+   :kind :transport
+   :procedure "cleaning robot drives from the service room up the lobby ramp to the entrance hall with its clean-water tank filled"
+   :params {:mass-kg 90.0 :distance-m 25.0 :v-max-mps 0.8 :a-max-mps2 0.4
+            :brake-decel-mps2 0.8 :drive-force-n 180.0 :crr 0.03 :slope-deg 4.8
+            :cog-height-m 0.35 :support-half-length-m 0.35 :max-time-s 1800.0}
+   :sweep {:param :payload-kg :values [0.0 10.0 20.0 30.0 45.0]}
+   :quantity :cycle-time-s
+   :limit {:max 45.0 :basis "estimate: the lobby ramp leg done between tenant arrivals, no longer than a lift cycle"}
+   :boundary {:lo 0.0 :hi 100.0}}
+  {:id :recovery-tank-dump
+   :kind :tank-drain
+   :procedure "cleaning robot empties its 40 L recovery tank through the drain hose into the service sink"
+   :params {:tank-area-m2 0.13 :h0-m 0.30 :h-target-m 0.01 :cd 0.60 :dt-s 0.1 :max-time-s 3600.0}
+   :sweep {:param :orifice-area-m2 :values [1.0e-4 2.0e-4 3.0e-4 5.0e-4 8.0e-4]}
+   :quantity :time-to-target-s
+   :limit {:max 120.0 :basis "estimate: the dump fits the two-minute service-sink stop in the cleaning route"}
+   :boundary {:lo 5.0e-5 :hi 1.5e-3}}
+  {:id :top-floor-ceiling-under-summer-roof
+   :kind :thermal
+   :procedure "ceiling insulation of a top-floor unit under a sun-heated roof space (70 C) for 8 h; the ceiling face the showing visitor stands under"
+   :params {:conductivity-w-mk 0.040 :density-kg-m3 20.0 :specific-heat-j-kgk 840.0
+            :t0-c 26.0 :t-hot-c 70.0 :h-front-w-m2k 10.0 :t-back-ambient-c 26.0 :h-back-w-m2k 8.0
+            :threshold-c 30.0 :duration-s 28800.0 :nodes 11}
+   :sweep {:param :thickness-m :values [0.025 0.05 0.10 0.15 0.20]}
+   :quantity :final-back-c
+   :limit {:max 30.0 :basis "estimate: ceiling surface no more than 4 K above the 26 C cooled room so it does not radiate noticeably onto visitors"}
+   :boundary {:lo 0.01 :hi 0.3}}]}
