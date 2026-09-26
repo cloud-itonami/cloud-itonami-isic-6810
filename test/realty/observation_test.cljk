@@ -1,5 +1,5 @@
 (ns realty.observation-test
-  "Deterministic contract tests for `realty.observation` (closing-observation/2; /1 artifacts stay readable via the sole-receipt fallback and known-versions).
+  "Deterministic contract tests for `realty.observation` (closing-observation/3; /1 and /2 artifacts stay readable via the sole-receipt fallback and known-versions).
 
   Every fixture below is SYNTHETIC and marked as such: the registration
   references, parcels, amounts and extracts are invented for the contract
@@ -155,7 +155,7 @@
 (deftest receipt-freezes-a-source-reading
   (let [r (jpn-registry-receipt)]
     (is (= "receipt:b925206875683444:2026-09-01" (:receipt/id r)))
-    (is (= "closing-observation/2" (:receipt/contract-version r)))
+    (is (= "closing-observation/3" (:receipt/contract-version r)))
     (is (= :official-land-registry (:receipt/source-class r)))
     (is (map? r))))
 
@@ -191,7 +191,7 @@
 
 (deftest observation-freezes-verbatim-figures-with-their-bases
   (let [o (jpn-observation)]
-    (is (= "closing-observation/2" (:obs/contract-version o)))
+    (is (= "closing-observation/3" (:obs/contract-version o)))
     (is (= 2 (count (:obs/receipts o))))
     (is (= #{:price-paid :parcel-area} (set (map :figure/kind (:obs/figures o)))))
     (is (= "34,800,000" (re-find #"34,800,000" (:figure/raw (jpn-price-figure)))))
@@ -561,7 +561,7 @@
   (let [o (obs/observation
            (assoc (gbr-observation)
                   :obs/figures [(dissoc (gbr-price-figure) :figure/source)]))]
-    (is (= "closing-observation/2" (:obs/contract-version o)))
+    (is (= "closing-observation/3" (:obs/contract-version o)))
     (is (= (:receipt/id (gbr-registry-receipt))
            (:figure/source (first (:obs/figures o)))))))
 
@@ -666,7 +666,7 @@
   (let [ev (jpn-amendment-event)]
     (is (= "evt:JPN:JPN:parcel:SYNTH-0001:amendment-announced:2026-10-01:2026-09-18"
            (:event/id ev)))
-    (is (= "closing-observation/2" (:event/method ev)))
+    (is (= "closing-observation/3" (:event/method ev)))
     (is (= :amendment-announced (:event/kind ev)))
     (is (= "2026-10-01" (:event/effective-at ev)))
     (is (some? (:event/announcement-raw ev)))))
@@ -822,3 +822,54 @@
     (is (seq (:proposal/privacy-boundaries p)))
     (is (= 1 (count (:proposal/receipt-ids p))))
     (is (empty? (:proposal/figure-claims p)))))
+
+
+;; --- 14. coverage refresh history + readback (v3) ------------------------------
+
+(deftest coverage-history-record-refresh-delta-readback
+  (let [c1 (obs/coverage-observation "2026-09-03")
+        c2 (obs/coverage-observation "2026-09-24")
+        h0 (obs/record-coverage [] c1)
+        h1 (obs/record-coverage h0 c2)]
+    (testing "record appends, never mutates; duplicate id refused"
+      (is (= 1 (count h0)))
+      (is (= 2 (count h1)))
+      (is (= 1 (count h0)))   ; h0 untouched
+      (is (= :history/duplicate-coverage-id
+             (refusal-of #(obs/record-coverage h0 c1)))))
+    (testing "refresh links lineage; unknown and self refused"
+      (let [c3 (obs/coverage-observation "2026-09-26")
+            h2 (obs/refresh-coverage h1 "cov-2026-09-24" c3)]
+        (is (= 3 (count h2)))
+        (is (= "cov-2026-09-24" (:coverage/refresh-of (last h2))))
+        (is (= :coverage/refresh-of-unknown
+               (refusal-of #(obs/refresh-coverage h1 "cov-nope" c3))))
+        (is (= :coverage/refresh-of-self
+               (refusal-of #(obs/refresh-coverage h1 "cov-2026-09-24" c2))))))
+    (testing "delta is verbatim-level, no numeric difference"
+      (let [d (obs/coverage-delta c1 c2)]
+        (is (= :unchanged (:delta/kind d)))   ; same catalog, same counts
+        (is (= "cov-2026-09-03" (:delta/prior-id d)))
+        (is (= "cov-2026-09-24" (:delta/next-id d)))
+        (is (string? (:delta/comparability-note d)))
+        (is (empty? (:delta/changed-coverage-fields d)))))
+    (testing "delta on non-coverage artifacts refused"
+      (is (= :coverage/delta-cross-generation
+             (refusal-of #(obs/coverage-delta c1 {:coverage/id "x"})))))
+    (testing "readback: latest at-or-before as-of; miss is a report"
+      (is (= "cov-2026-09-24" (:coverage/id (obs/readback-coverage h1 "2026-09-25"))))
+      (is (= true (:readback/miss (obs/readback-coverage h1 "2026-09-01"))))
+      (is (= :coverage/bad-recorded-at
+             (refusal-of #(obs/readback-coverage h1 "2026/09/25"))))))
+  (testing "a /2-shaped coverage row (no id/method) is refused at record time"
+    (let [legacy {:coverage/contract-version "closing-observation/2"
+                  :coverage/recorded-at "2026-09-03"
+                  :coverage/no-model true}]
+      (is (= :coverage/not-a-coverage
+             (refusal-of #(obs/record-coverage [] legacy)))))))
+
+(deftest coverage-observation-v3-stamps-id-and-method
+  (let [c (obs/coverage-observation "2026-09-26")]
+    (is (= "closing-observation/3" (:coverage/method c)))
+    (is (= "cov-2026-09-26" (:coverage/id c)))
+    (is (contains? c :coverage/recorded-at))))

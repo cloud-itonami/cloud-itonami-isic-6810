@@ -137,7 +137,7 @@ Resolves via [`kotoba-lang/industry`](https://github.com/kotoba-lang/industry)
 | `src/realty/operation.cljk` | **OperationActor** -- langgraph-clj StateGraph |
 | `src/realty/corporate_intel.cljk` | optional cross-reference into [`cloud-itonami-isic-8291`](https://github.com/cloud-itonami/cloud-itonami-isic-8291)'s `:disclosure/screen-name` -- catches a party clean on every LOCAL field but flagged in 8291's own sourced PEP/sanctions data; wired into `screen-kyc` via an injected fn, default is a no-op so every prior caller's behavior is unchanged unless explicitly opted in |
 | `src/realty/sim.cljk` | demo driver |
-| `src/realty/observation.cljk` | **Observation contract** (`closing-observation/2`) -- provenance-preserving observations of RECORDED registry events over official sources; separate from the actor's own drafts |
+| `src/realty/observation.cljk` | **Observation contract** (`closing-observation/3`) -- provenance-preserving observations of RECORDED registry events over official sources; separate from the actor's own drafts |
 | `test/realty/*_test.clj` | governor contract · phase invariants · store parity · registry conformance · facts coverage · corporate-intelligence integration · observation contract |
 
 ## Jurisdiction coverage (honest)
@@ -166,7 +166,7 @@ The broker is optional, but this actor never substitutes for the Dutch
 release of sale proceeds remain explicit human gates. See
 [`docs/nld-operator-guide.md`](docs/nld-operator-guide.md) and ADR-0002.
 
-## The observation contract (`closing-observation/2`)
+## The observation contract (`closing-observation/3`)
 
 `realty.observation` is the actor's **observation layer**: how a reading of
 an OFFICIAL source (land registry, cadastre, statistics agency) becomes a
@@ -187,7 +187,7 @@ observation states `{:from :to}`, events must fall inside) · **currency and
 area basis** (amounts carry ISO-4217 currency + their own nominal date,
 dimensions carry a closed-vocabulary unit, both carry the verbatim raw
 transcription; nothing is normalized, converted or combined) · **method /
-version** (`closing-observation/2` on every artifact; no model anywhere) ·
+version** (`closing-observation/3` on every artifact; no model anywhere) ·
 **missingness / coverage** (closed flag vocabulary; a jurisdiction without a
 `realty.facts` spec-basis must carry `:jurisdiction-spec-basis-absent`, a
 recorded transfer without a price figure must carry `:price-unavailable` --
