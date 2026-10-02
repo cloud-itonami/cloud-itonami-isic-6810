@@ -1,0 +1,23 @@
+{
+  "schema": "itonami.necessity-impact.v1",
+  "necessity_role": "housing",
+  "repo": "cloud-itonami-isic-6810",
+  "isic": "6810",
+  "unit": "JPY per brokered sale of a 30,000,000 JPY property (ex consumption tax), one client side",
+  "baseline": {
+    "cost": 960000,
+    "source": "Statutory CEILING (not an observed average fee) on the brokerage fee under Takken-gyoho art.17(1), MLIT/Ministry of Construction notice No.1552 (1970) as in force at https://www.mlit.go.jp/notice/noticedata/sgml/1970/26197000/26197000.html section 1: 5% up to 2M JPY, 4% on 2-4M, 3% above 4M. 2M*5% + 2M*4% + 26M*3% = 960,000 JPY. Later amendments (e.g. the 2024 low-price-property rule) apply to far lower prices and do not change this band.",
+    "as_of": "2026-10-02"
+  },
+  "with_bot": {
+    "cost": null,
+    "source": null,
+    "as_of": null,
+    "n_events": 0
+  },
+  "adopters": {
+    "external_tenants": 0,
+    "source": "cloud-itonami SaaS record in kotoba-lang/dynamics README (2026-08-06): 5 external tenants never opened checkout; not re-verified"
+  },
+  "notes": "baseline is a legal maximum, so delta computed against it is a lower bound on cost relief only if the market charges the maximum; replace with an observed market median fee when a sourced one exists. with_bot must come from fees/costs of closings this repo's actor actually processed (n_events >= 30)."
+}
