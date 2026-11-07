@@ -98,3 +98,28 @@
       (exec-op actor "b" {:op :jurisdiction/assess :subject "listing-1" :no-spec? true} operator)
       (is (= 2 (count (store/ledger db)))
           "one commit + one hold, both recorded"))))
+
+(deftest second-closing-of-a-closed-listing-is-held
+  (testing "JUN-980: a closed listing cannot be proposed for closing again -- HARD hold, not an escalation"
+    (let [[db actor] (fresh)
+          _ (exec-op actor "c1a" {:op :jurisdiction/assess :subject "listing-1"} operator)
+          _ (g/run* actor {:approval {:status :approved :by "op-1"}} {:thread-id "c1a" :resume? true})
+          _ (exec-op actor "c1b" {:op :kyc/screen :subject "party-1"} operator)
+          _ (g/run* actor {:approval {:status :approved :by "op-1"}} {:thread-id "c1b" :resume? true})
+          _ (exec-op actor "c1" {:op :closing/submit :subject "listing-1"} operator)
+          _ (g/run* actor {:approval {:status :approved :by "op-1"}} {:thread-id "c1" :resume? true})
+          _ (is (= :closed (:status (store/listing db "listing-1"))) "precondition: the first closing went through")
+          r2 (exec-op actor "c2" {:op :closing/submit :subject "listing-1"} operator)]
+      (is (= :hold (get-in r2 [:state :disposition])))
+      (is (not= :interrupted (:status r2)) "never reaches a human approver")
+      (is (some #{:already-closed} (-> (store/ledger db) last :basis)))
+      (is (= 1 (count (store/closing-history db))) "no second closing record drafted"))))
+
+(deftest first-closing-is-not-held-as-already-closed
+  (testing "negative control: an open listing is not caught by the already-closed check"
+    (let [[db actor] (fresh)
+          _ (exec-op actor "n1a" {:op :jurisdiction/assess :subject "listing-1"} operator)
+          _ (g/run* actor {:approval {:status :approved :by "op-1"}} {:thread-id "n1a" :resume? true})
+          r (exec-op actor "n1" {:op :closing/submit :subject "listing-1"} operator)]
+      (is (= :interrupted (:status r)) "escalates to a human as before")
+      (is (not (some #{:already-closed} (mapcat :basis (store/ledger db))))))))

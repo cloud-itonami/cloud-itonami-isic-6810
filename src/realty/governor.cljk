@@ -8,10 +8,10 @@
   RegistrarGovernor, robotaxi's Minimal Risk Condition and
   gftd-talent-actor's PolicyGovernor.
 
-  Five checks, in priority order. The first three are HARD violations: a
+  Six checks, in priority order. The first four are HARD violations: a
   human approver CANNOT override them (you don't get to approve your way
-  past an AML/sanctions hit or a fabricated disclosure requirement). The
-  last two are SOFT: they ask a human to look (low confidence / actuation),
+  past an AML/sanctions hit, a fabricated disclosure requirement or a
+  second closing of a property already closed). The last two are SOFT: they ask a human to look (low confidence / actuation),
   and the human may approve -- but see `realty.phase`: for `:stake
   :actuation` (a real title-transfer recording or escrow-fund
   disbursement) NO phase ever allows auto-commit either. Two independent
@@ -25,8 +25,11 @@
     3. Document complete  -- for a closing proposal, are the jurisdiction's
                              required disclosure/title docs actually
                              satisfied?
-    4. Confidence floor   -- LLM confidence below threshold -> escalate.
-    5. Actuation gate     -- :stake :actuation -> always escalate; never
+    4. Already closed     -- a closing proposal for a listing that is
+                             already closed (JUN-980: previously this
+                             escalated to a human instead of holding).
+    5. Confidence floor   -- LLM confidence below threshold -> escalate.
+    6. Actuation gate     -- :stake :actuation -> always escalate; never
                              auto, at any phase (structural, not a policy
                              toggle)."
   (:require [realty.facts :as facts]
@@ -81,6 +84,18 @@
         [{:rule :incomplete-documents
           :detail "法域の必要書類/開示が充足していない状態での成約提案"}]))))
 
+(defn- already-closed-violations
+  "A `:closing/submit` for a listing that is already closed is a HARD
+  violation -- a second closing proposal must never reach a human as if it
+  were a fresh one. The listing is closed once `:closing/mark-recorded` has
+  set its `:status` to `:closed` (and a `:closing-number`)."
+  [{:keys [op subject]} st]
+  (when (= op :closing/submit)
+    (let [l (store/listing st subject)]
+      (when (or (= :closed (:status l)) (some? (:closing-number l)))
+        [{:rule :already-closed
+          :detail "成約済みの物件に対する再度の成約提案は進められない"}]))))
+
 (defn check
   "Censors a Realtor-LLM proposal against the governor rules. Returns
    {:ok? bool :violations [..] :confidence c :escalate? bool :high-stakes? bool
@@ -94,7 +109,8 @@
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
                            (sanctions-violations request proposal st)
-                           (document-violations request st)))
+                           (document-violations request st)
+                           (already-closed-violations request st)))
         conf (:confidence proposal 0.0)
         low? (< conf confidence-floor)
         stakes? (boolean (high-stakes (:stake proposal)))

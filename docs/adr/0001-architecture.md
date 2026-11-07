@@ -50,9 +50,11 @@ inner loop.
 
 ### 3. RealtorGovernor is a separate system from Realtor-LLM
 
-`realty.governor` has five checks: spec-basis · sanctions-hit ·
-document-complete (HARD, un-overridable) + confidence-floor ·
-actuation-gate (SOFT, human decides).
+`realty.governor` has six checks: spec-basis · sanctions-hit ·
+document-complete · already-closed (HARD, un-overridable) +
+confidence-floor · actuation-gate (SOFT, human decides). `already-closed`
+was added in JUN-980; before it a second closing proposal for a closed
+listing escalated to a human instead of holding.
 
 ### 4. Real actuation is structurally always human-only (enforced by two independent layers)
 

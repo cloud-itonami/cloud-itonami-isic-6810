@@ -37,3 +37,20 @@
     (is (some #(re-find #"tenancy" %) docs))
     (is (facts/required-docs-satisfied? "NLD" docs))
     (is (not (facts/required-docs-satisfied? "NLD" (rest docs))))))
+
+(deftest japan-actuation-authority-and-human-gates-are-provisional
+  (let [jpn (facts/spec-basis "JPN")]
+    (is (= :provisional (:gates-status jpn)) "not final until a licensed professional reviews it")
+    (is (re-find #"司法書士" (facts/actuation-authority "JPN")))
+    (is (re-find #"登記官" (facts/actuation-authority "JPN")))
+    (is (re-find #"never files" (facts/actuation-authority "JPN")) "the actor is never the one who acts")
+    (is (= #{:important-matters-explained :contract-signed :identity-confirmed
+             :registration-tax-paid :application-filed :registration-completed
+             :funds-released}
+           (facts/human-gates "JPN")))
+    (is (not (facts/required-docs-satisfied? "JPN" []))
+        "filling the gates did not loosen the document check")))
+
+(deftest gates-stay-empty-for-jurisdictions-without-an-entry
+  (is (= #{} (facts/human-gates "ATL")))
+  (is (nil? (facts/actuation-authority "ATL"))))
