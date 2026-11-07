@@ -23,4 +23,12 @@
         io.github.kotoba-lang/test
         {:git/url "https://github.com/kotoba-lang/kotoba.git"
          :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
-         :deps/root "lib/kotoba.test"}}}
+         :deps/root "lib/kotoba.test"}
+        ;; kotoba.lang.text: coll/edn/test each reach it through their own
+        ;; :local/root "../kotoba.text", which tools.deps sees as one lib at
+        ;; three different gitlib clones and cannot order ("No known ancestor
+        ;; relationship"). A top-level coordinate decides it (2026-11-07, JUN-1009).
+        io.github.kotoba-lang/text
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.text"}}}
